@@ -1,5 +1,7 @@
 package com.alae.iam.basic_auth_mysql.controller;
 
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -18,7 +20,7 @@ public class AuthController {
   private final AuthService authService;
 
   @PostMapping("/register")
-  public RegisterResponse register(@RequestBody @Valid RegisterRequest req) {
-    return authService.register(req);
+  public ResponseEntity<RegisterResponse> register(@RequestBody @Valid RegisterRequest req) {
+    return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(req));
   }
 }

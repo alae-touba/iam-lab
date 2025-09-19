@@ -22,7 +22,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.isConflict;
 
 @SpringBootTest
 @Testcontainers
@@ -69,7 +68,7 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
     }
 
     @Test
@@ -79,7 +78,7 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
         mockMvc.perform(get("/home").with(httpBasic("testuser-auth", "password123")))
                 .andExpect(status().isOk())
@@ -93,7 +92,7 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(initialRequest)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
         // When & Then: Attempt to register again with the same username
         RegisterRequest duplicateUsernameRequest = new RegisterRequest("duplicateuser", "another-email@example.com", "password456");
@@ -111,7 +110,7 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(initialRequest)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
         // When & Then: Attempt to register again with the same email
         RegisterRequest duplicateEmailRequest = new RegisterRequest("anotheruser-2", "duplicate-email@example.com", "password456");
@@ -159,7 +158,7 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(registerRequest)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
         // When & Then: An authenticated request is made and no session is created
         mockMvc.perform(get("/home").with(httpBasic("stateless-user", "password123")))
