@@ -1,7 +1,13 @@
 package com.alae.iam.basic_auth_mysql.domain;
 
+import java.util.Collection;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,29 +27,57 @@ import lombok.Setter;
 
 @Entity
 @Table(name = "users")
-@Getter @Setter @NoArgsConstructor @AllArgsConstructor @Builder
-public class User {
-  @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
-  private Long id;
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class User implements UserDetails {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-  @Column(nullable = false, unique = true, length = 100)
-  private String username;
+    @Column(nullable = false, unique = true, length = 100)
+    private String username;
 
-  @Column(nullable = false, unique = true, length = 255)
-  private String email;
+    @Column(nullable = false, unique = true, length = 255)
+    private String email;
 
-  @Column(nullable = false, length = 255)
-  private String password;
+    @Column(nullable = false, length = 255)
+    private String password;
 
-  @Column(nullable = false)
-  private boolean enabled = true;
+    @Column(nullable = false)
+    private boolean enabled = true;
 
-  @ManyToMany(fetch = FetchType.EAGER)
-  @JoinTable(
-      name = "users_authorities",
-      joinColumns = @JoinColumn(name = "user_id"),
-      inverseJoinColumns = @JoinColumn(name = "authority_id")
-  )
-  @Builder.Default
-  private Set<Authority> authorities = new HashSet<>();
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "users_authorities", joinColumns = @JoinColumn(name = "user_id"), inverseJoinColumns = @JoinColumn(name = "authority_id"))
+    @Builder.Default
+    private Set<Authority> roles = new HashSet<>();
+
+    @Override
+    public Collection<? extends GrantedAuthority> getAuthorities() {
+        return roles.stream()
+                .map(authority -> new SimpleGrantedAuthority(authority.getName()))
+                .collect(Collectors.toSet());
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
 }

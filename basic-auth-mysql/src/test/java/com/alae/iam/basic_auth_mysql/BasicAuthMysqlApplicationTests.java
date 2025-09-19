@@ -22,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.httpBasic;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.isConflict;
 
 @SpringBootTest
 @Testcontainers
@@ -99,8 +100,8 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(duplicateUsernameRequest)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Username already taken"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Username or email already taken"));
     }
 
     @Test
@@ -117,8 +118,8 @@ class BasicAuthMysqlApplicationTests {
         mockMvc.perform(post("/register")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(duplicateEmailRequest)))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error").value("Email already taken"));
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.error").value("Username or email already taken"));
     }
 
     @Test
