@@ -78,3 +78,13 @@ The application provides the following endpoints:
 *   `GET /home`: A protected endpoint that requires authentication. It returns a welcome message with the authenticated user's name.
 
     To access this endpoint, you need to provide the username and password of a registered user using Basic Authentication.
+
+## Testing
+
+This project uses Testcontainers for integration testing, so you don't need a separate running MySQL instance to run the tests. The tests will automatically spin up a MySQL container.
+
+To run the tests, execute the following command in the project root directory:
+
+```bash
+./mvnw.cmd test
+```
