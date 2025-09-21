@@ -54,6 +54,76 @@ Here is a summary of the available REST endpoints:
 
 ---
 
+## How Authentication Works (Form Login + Server Sessions)
+
+https://docs.spring.io/spring-security/reference/servlet/authentication/session-management.html
+
+This project relies on Spring Security's form-login flow with server-managed sessions. Authentication state lives in the `HttpSession` and is tracked on the client by the `JSESSIONID` cookie.
+
+### High-level flow
+
+1. The incoming request goes through the `SecurityFilterChain` configured in `SecurityConfig`.
+2. `POST /api/auth/login` is handled by `UsernamePasswordAuthenticationFilter` (enabled via `.formLogin()`), which reads `usernameOrEmail` and `password` from the form body.
+3. The filter builds an unauthenticated `UsernamePasswordAuthenticationToken` and delegates to the `AuthenticationManager` (`ProviderManager`).
+4. `DaoAuthenticationProvider` calls `CustomUserDetailsService#loadUserByUsername` to fetch the user (by username **or** email) and checks the password with `BCryptPasswordEncoder`.
+5. On success, the provider returns an authenticated token that is stored in the `SecurityContextHolder`. A session is created when needed (`SessionCreationPolicy.IF_REQUIRED`).
+6. `RestAuthenticationSuccessHandler` serializes the `UserSummary` response, and the servlet container issues a `JSESSIONID` cookie that points to the server-side session.
+7. Subsequent requests send the `JSESSIONID`; Spring restores the `Authentication` from the session before hitting controllers, so protected endpoints see the user as logged in.
+
+### Session lifecycle
+
+- `SessionCreationPolicy.IF_REQUIRED` keeps things efficient: only login creates a session, and stateless reads stay session-free.
+- Session data holds the `SecurityContext`; losing the cookie or expiring the session forces a fresh login.
+- `/api/auth/logout` invalidates the `HttpSession` and instructs the client to remove `JSESSIONID`.
+
+### What happens on errors
+
+- Bad credentials on `/api/auth/login` trigger `RestAuthenticationFailureHandler`, which returns `401` with a JSON error body.
+- Unauthenticated access to secure endpoints calls `RestAuthenticationEntryPoint`, returning `401` with a JSON message.
+- If you later add role checks, access denials will surface as `403` from Spring's `AccessDeniedHandler`.
+
+### Components used (and where)
+
+- `SecurityFilterChain` — `SecurityConfig.filterChain(...)`
+- `formLogin()` — customizes the login URL, parameters, and success/failure handlers
+- `RestAuthenticationSuccessHandler` — writes the JSON body after login success
+- `RestAuthenticationFailureHandler` — uniform JSON for failed login attempts
+- `RestAuthenticationEntryPoint` — guards protected endpoints when no session is present
+- `CustomUserDetailsService` — loads users from MySQL via `UserRepository`
+- `PasswordEncoder` (`BCrypt`) — hashes and verifies credentials
+
+### Request/response snapshots
+
+- **Login and capture the session cookie**
+
+  ```bash
+  curl -i -X POST http://localhost:8080/api/auth/login \
+    -H "Content-Type: application/x-www-form-urlencoded" \
+    -d "usernameOrEmail=newuser&password=password123" \
+    -c cookies.txt
+  ```
+
+  The response includes `Set-Cookie: JSESSIONID=...; Path=/; HttpOnly`.
+
+- **Call a protected endpoint with the session**
+
+  ```bash
+  curl -i -X GET http://localhost:8080/api/secure/ping \
+    -b cookies.txt
+  ```
+
+- **Log out and invalidate the session**
+
+  ```bash
+  curl -i -X POST http://localhost:8080/api/auth/logout \
+    -b cookies.txt
+  ```
+
+### Why sessions here?
+
+- SPA/REST clients can authenticate once and reuse the `JSESSIONID` without resending the password.
+- Session invalidation on logout and cookie deletion keep credentials off the wire after login.
+- Stateful sessions simplify CSRF protection if you later add browser flows (enable CSRF accordingly).
 
 ### Usage Examples (cURL)
 
