@@ -18,6 +18,12 @@ import com.alae.iam.basic_auth_mysql.repository.UserRepository;
 @Configuration
 public class SecurityConfig {
 
+  private final CustomBasicAuthenticationEntryPoint customBasicAuthenticationEntryPoint;
+
+  public SecurityConfig(CustomBasicAuthenticationEntryPoint customBasicAuthenticationEntryPoint) {
+    this.customBasicAuthenticationEntryPoint = customBasicAuthenticationEntryPoint;
+  }
+
   @Bean
   SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
@@ -29,7 +35,7 @@ public class SecurityConfig {
           .requestMatchers("/home").authenticated()
           .anyRequest().denyAll()
       )
-      .httpBasic(Customizer.withDefaults());
+      .httpBasic(httpBasic -> httpBasic.authenticationEntryPoint(customBasicAuthenticationEntryPoint));
     return http.build();
   }
 

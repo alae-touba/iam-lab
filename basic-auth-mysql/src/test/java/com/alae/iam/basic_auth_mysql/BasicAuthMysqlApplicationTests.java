@@ -74,7 +74,10 @@ class BasicAuthMysqlApplicationTests {
     @Test
     void homeEndpointIsUnauthorizedWithoutAuth() throws Exception {
         mockMvc.perform(get("/home"))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isUnauthorized())
+                .andExpect(header().string("Content-Type", containsString("application/json")))
+                .andExpect(jsonPath("$.error").value("Unauthorized"))
+                .andExpect(jsonPath("$.message").value("Authentication failed: Full authentication is required to access this resource"));
     }
 
     @Test
