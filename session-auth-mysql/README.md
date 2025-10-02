@@ -40,6 +40,24 @@ You can run the application using the Maven wrapper:
 
 The application will start on `http://localhost:8080`.
 
+## Testing
+
+These tests use Testcontainers to spin up an ephemeral MySQL 8.4 instance, so make sure Docker Desktop (or another Docker engine) is running before you start.
+
+Run the full test suite with the Maven wrapper:
+
+```bash
+./mvnw test
+```
+
+To run a specific test class—for example the MockMvc-based integration suite—use:
+
+```bash
+./mvnw test -Dtest=SessionAuthMysqlApplicationTests
+```
+
+If you have Testcontainers reuse enabled (via `~/.testcontainers.properties`), subsequent runs will be faster because the MySQL container is kept warm between executions.
+
 ## API Endpoints
 
 Here is a summary of the available REST endpoints:

@@ -2,7 +2,7 @@ spring:
   application:
     name: session-auth-mysql
   datasource:
-    url: jdbc:mysql://localhost:3306/session_auth_db
+    url: jdbc:mysql://127.0.0.1:3306/session_auth_db
     username: root
     password: root
     driver-class-name: com.mysql.cj.jdbc.Driver
