@@ -4,6 +4,7 @@ import com.alae.iam.manual_auth_mysql.domain.AuthPrincipal;
 import com.alae.iam.manual_auth_mysql.dto.LoginRequest;
 import com.alae.iam.manual_auth_mysql.dto.LoginResponse;
 import com.alae.iam.manual_auth_mysql.dto.RegisterRequest;
+import com.alae.iam.manual_auth_mysql.dto.UserResponse;
 import com.alae.iam.manual_auth_mysql.exception.auth.AccountDisabledException;
 import com.alae.iam.manual_auth_mysql.exception.auth.AccountLockedException;
 import com.alae.iam.manual_auth_mysql.exception.auth.InvalidCredentialsException;
@@ -12,6 +13,7 @@ import com.alae.iam.manual_auth_mysql.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -20,8 +22,9 @@ import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.web.bind.annotation.*;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -30,20 +33,13 @@ public class AuthController {
 
   private final AuthenticationManager authenticationManager;
   private final AuthService authService;
-  private final SecurityContextRepository securityContextRepository;
 
   @PostMapping("/login")
-  public ResponseEntity<?> login(@RequestBody LoginRequest req,
-                                 HttpServletRequest request,
-                                 HttpServletResponse response) {
+  public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
     Authentication token = new UsernamePasswordAuthenticationToken(req.usernameOrEmail(), req.password());
     try {
       Authentication auth = authenticationManager.authenticate(token);
-      SecurityContextHolder.getContext().setAuthentication(auth);
-      request.getSession(true); // ensure session exists so the context persists via cookie
-      securityContextRepository.saveContext(SecurityContextHolder.getContext(), request, response);
-      AuthPrincipal p = (AuthPrincipal) auth.getPrincipal();
-      return ResponseEntity.ok(new LoginResponse(p.id(), p.username(), p.email()));
+      return ResponseEntity.ok(authService.completeLogin(auth, request, response));
     } catch (BadCredentialsException e) {
       throw new InvalidCredentialsException("Invalid username/email or password", req.usernameOrEmail());
     } catch (LockedException e) {
@@ -54,7 +50,7 @@ public class AuthController {
   }
 
   @GetMapping("/me")
-  public ResponseEntity<?> me() {
+  public ResponseEntity<LoginResponse> me() {
     var auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
       throw new NotAuthenticatedException("User is not authenticated");
@@ -70,8 +66,9 @@ public class AuthController {
   }
 
   @PostMapping("/register")
-  public ResponseEntity<?> register(@RequestBody RegisterRequest req) {
-    authService.register(req.username(), req.email(), req.password());
-    return ResponseEntity.ok().build();
+  public ResponseEntity<UserResponse> register(@Valid @RequestBody RegisterRequest req) {
+    var user = authService.register(req.username(), req.email(), req.password());
+    var response = new UserResponse(user.getId(), user.getUsername(), user.getEmail());
+    return ResponseEntity.status(HttpStatus.CREATED).body(response);
   }
 }

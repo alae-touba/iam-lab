@@ -74,7 +74,9 @@ class ManualAuthMysqlApplicationTests {
         .content("""
                  {"username":"alice","email":"alice@example.com","password":"secret"}
                  """))
-        .andExpect(status().isOk());
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.username").value("alice"))
+        .andExpect(jsonPath("$.email").value("alice@example.com"));
 
     // 1) login
     MvcResult loginRes = mvc.perform(post("/api/auth/login")
@@ -110,7 +112,9 @@ class ManualAuthMysqlApplicationTests {
         .content("""
                  {"username":"bob","email":"bob@example.com","password":"secret"}
                  """))
-        .andExpect(status().isOk());
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.username").value("bob"))
+        .andExpect(jsonPath("$.email").value("bob@example.com"));
 
     // verify user was created
     var user = repo.findByUsername("bob").orElse(null);
@@ -126,7 +130,7 @@ class ManualAuthMysqlApplicationTests {
         .content("""
                  {"username":"alice","email":"alice@example.com","password":"secret"}
                  """))
-        .andExpect(status().isOk());
+        .andExpect(status().isCreated());
 
     mvc.perform(post("/api/auth/login")
         .contentType("application/json")

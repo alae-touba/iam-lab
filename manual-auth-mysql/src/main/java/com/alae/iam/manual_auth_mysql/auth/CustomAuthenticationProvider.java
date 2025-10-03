@@ -23,14 +23,24 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
   @Override
   public Authentication authenticate(Authentication authentication) throws AuthenticationException {
     final String usernameOrEmail = authentication.getName();
-    final String rawPassword = authentication.getCredentials() == null ? "" : authentication.getCredentials().toString();
+    
+    if (authentication.getCredentials() == null) {
+      throw new BadCredentialsException("Invalid credentials");
+    }
+
+    final String rawPassword = authentication.getCredentials().toString();
 
     AppUser user = userRepository.findByUsername(usernameOrEmail)
         .or(() -> userRepository.findByEmail(usernameOrEmail))
         .orElseThrow(() -> new BadCredentialsException("Invalid credentials"));
 
-    if (!user.isEnabled()) throw new DisabledException("Account disabled");
-    if (user.isAccountLocked()) throw new LockedException("Account locked");
+    if (!user.isEnabled()) {
+      throw new DisabledException("Account disabled");
+    }
+
+    if (user.isAccountLocked()) {
+      throw new LockedException("Account locked");
+    }
 
     if (!passwordEncoder.matches(rawPassword, user.getPasswordHash())) {
       throw new BadCredentialsException("Invalid credentials");
