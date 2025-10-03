@@ -2,7 +2,6 @@ package com.alae.iam.manual_auth_mysql.controller;
 
 import com.alae.iam.manual_auth_mysql.domain.AuthPrincipal;
 import com.alae.iam.manual_auth_mysql.dto.LoginRequest;
-import com.alae.iam.manual_auth_mysql.dto.LoginResponse;
 import com.alae.iam.manual_auth_mysql.dto.RegisterRequest;
 import com.alae.iam.manual_auth_mysql.dto.UserResponse;
 import com.alae.iam.manual_auth_mysql.exception.auth.AccountDisabledException;
@@ -35,7 +34,7 @@ public class AuthController {
   private final AuthService authService;
 
   @PostMapping("/login")
-  public ResponseEntity<LoginResponse> login(@RequestBody LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
+  public ResponseEntity<UserResponse> login(@RequestBody LoginRequest req, HttpServletRequest request, HttpServletResponse response) {
     Authentication token = new UsernamePasswordAuthenticationToken(req.usernameOrEmail(), req.password());
     try {
       Authentication auth = authenticationManager.authenticate(token);
@@ -50,13 +49,13 @@ public class AuthController {
   }
 
   @GetMapping("/me")
-  public ResponseEntity<LoginResponse> me() {
+  public ResponseEntity<UserResponse> me() {
     var auth = SecurityContextHolder.getContext().getAuthentication();
     if (auth == null || !auth.isAuthenticated() || "anonymousUser".equals(auth.getPrincipal())) {
       throw new NotAuthenticatedException("User is not authenticated");
     }
     AuthPrincipal p = (AuthPrincipal) auth.getPrincipal();
-    return ResponseEntity.ok(new LoginResponse(p.id(), p.username(), p.email()));
+    return ResponseEntity.ok(new UserResponse(p.id(), p.username(), p.email()));
   }
 
   @PostMapping("/logout")

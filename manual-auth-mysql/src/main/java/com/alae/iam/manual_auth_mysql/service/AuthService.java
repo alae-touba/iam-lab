@@ -2,7 +2,7 @@ package com.alae.iam.manual_auth_mysql.service;
 
 import com.alae.iam.manual_auth_mysql.domain.AppUser;
 import com.alae.iam.manual_auth_mysql.domain.AuthPrincipal;
-import com.alae.iam.manual_auth_mysql.dto.LoginResponse;
+import com.alae.iam.manual_auth_mysql.dto.UserResponse;
 import com.alae.iam.manual_auth_mysql.repository.AppUserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -22,14 +22,14 @@ public class AuthService {
   private final AppUserRepository appUserRepository;
   private final PasswordEncoder passwordEncoder;
 
-  public LoginResponse completeLogin(Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
+  public UserResponse completeLogin(Authentication authentication, HttpServletRequest request, HttpServletResponse response) {
     SecurityContext context = SecurityContextHolder.createEmptyContext();
     context.setAuthentication(authentication);
     request.getSession(true); // ensure session is created so cookie is issued
     securityContextRepository.saveContext(context, request, response);
     SecurityContextHolder.setContext(context);
     AuthPrincipal principal = (AuthPrincipal) authentication.getPrincipal();
-    return new LoginResponse(principal.id(), principal.username(), principal.email());
+    return new UserResponse(principal.id(), principal.username(), principal.email());
   }
 
   public void logout(HttpServletRequest request, HttpServletResponse response) {
