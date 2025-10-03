@@ -46,12 +46,10 @@ public class CustomAuthenticationProvider implements AuthenticationProvider {
       throw new BadCredentialsException("Invalid credentials");
     }
 
-    List<String> roles = List.of("ROLE_USER");
-    var authorities = roles.stream().map(SimpleGrantedAuthority::new).toList();
     var principal = new AuthPrincipal(user.getId(), user.getUsername(), user.getEmail());
 
     // never return the raw password
-    return new UsernamePasswordAuthenticationToken(principal, null, authorities);
+    return new UsernamePasswordAuthenticationToken(principal, null, java.util.Collections.emptyList());
   }
 
   @Override
