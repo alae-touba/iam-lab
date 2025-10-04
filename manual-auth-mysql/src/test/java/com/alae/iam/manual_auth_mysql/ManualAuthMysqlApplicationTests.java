@@ -1,17 +1,22 @@
 package com.alae.iam.manual_auth_mysql;
 
 import com.alae.iam.manual_auth_mysql.repository.AppUserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpSession;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
@@ -20,6 +25,7 @@ import org.testcontainers.utility.DockerImageName;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
@@ -31,7 +37,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class ManualAuthMysqlApplicationTests {
 
+  // ----- API Endpoints -----
+  private static final String REGISTER = "/api/auth/register";
+  private static final String LOGIN    = "/api/auth/login";
+  private static final String LOGOUT   = "/api/auth/logout";
+  private static final String ME       = "/api/auth/me";
+
+  // ----- Test Data -----
+  private static final String ALICE_USERNAME = "alice";
+  private static final String ALICE_EMAIL = "alice@example.com";
+  private static final String ALICE_PASSWORD = "secret";
+  
+  private static final String BOB_USERNAME = "bob";
+  private static final String BOB_EMAIL = "bob@example.com";
+  private static final String BOB_PASSWORD = "secret";
+  
+  private static final String WRONG_PASSWORD = "wrong";
+
   static {
+    // Testcontainers + JNA tmp dir (prevents Windows/WSL temp issues)
     try {
       Path jnaTempDir = Path.of("target", "testcontainers-jna");
       Files.createDirectories(jnaTempDir);
@@ -49,6 +73,7 @@ class ManualAuthMysqlApplicationTests {
           .withDatabaseName("manual_auth_db")
           .withUsername("root")
           .withPassword("root");
+          // .withReuse(true) // optional: speed up local runs
 
   @DynamicPropertySource
   static void datasourceProperties(DynamicPropertyRegistry registry) {
@@ -58,85 +83,117 @@ class ManualAuthMysqlApplicationTests {
     registry.add("spring.jpa.hibernate.ddl-auto", () -> "create-drop");
   }
 
-  @Autowired AppUserRepository repo;
   @Autowired MockMvc mvc;
+  @Autowired AppUserRepository repo;
+  @Autowired ObjectMapper objectMapper;
 
   @BeforeEach
-  void setup() {
+  void cleanDatabase() {
     repo.deleteAll();
   }
 
-  @Test
-  void login_me_logout_happy_path() throws Exception {
-    // first register a user
-    mvc.perform(post("/api/auth/register")
-        .contentType("application/json")
-        .content("""
-                 {"username":"alice","email":"alice@example.com","password":"secret"}
-                 """))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.username").value("alice"))
-        .andExpect(jsonPath("$.email").value("alice@example.com"));
+  // ----- Tests -----
 
-    // 1) login
-    MvcResult loginRes = mvc.perform(post("/api/auth/login")
-        .contentType("application/json")
-        .content("""
-                 {"usernameOrEmail":"alice","password":"secret"}
-                 """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.username").value("alice"))
-        .andReturn();
+  @Nested
+  @DisplayName("Auth flow")
+  class AuthFlowTests {
 
-    MockHttpSession session = (MockHttpSession) loginRes.getRequest().getSession(false);
-    assertNotNull(session, "No HttpSession created for login response");
+    @Test
+    @DisplayName("register → login → me → logout → me(401)")
+    void loginMeLogoutHappyPath() throws Exception {
+      // arrange
+      registerUser(ALICE_USERNAME, ALICE_EMAIL, ALICE_PASSWORD);
 
-    // 2) me
-    mvc.perform(get("/api/auth/me").session(session))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.email").value("alice@example.com"));
+      // act: login
+      MockHttpSession session = loginAndGetSession(ALICE_USERNAME, ALICE_PASSWORD);
+      assertNotNull(session, "No HttpSession created for login");
 
-    // 3) logout
-    mvc.perform(post("/api/auth/logout").session(session))
-        .andExpect(status().isOk());
+      // assert: me
+      me(session)
+          .andExpect(status().isOk())
+          .andExpect(jsonPath("$.email").value(ALICE_EMAIL));
 
-    // 4) me after logout -> 401
-    mvc.perform(get("/api/auth/me").session(session))
-        .andExpect(status().isUnauthorized());
+      // act: logout
+      logout(session).andExpect(status().isOk());
+
+      // assert: me after logout
+      me(session).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    @DisplayName("registration creates user")
+    void registrationCreatesUser() throws Exception {
+      registerUser(BOB_USERNAME, BOB_EMAIL, BOB_PASSWORD);
+
+      var user = repo.findByUsername(BOB_USERNAME).orElse(null);
+      assertNotNull(user);
+      assertEquals(BOB_EMAIL, user.getEmail());
+    }
+
+    @Test
+    @DisplayName("login with wrong password returns 401 (ProblemDetail)")
+    void loginWrongPasswordReturns401() throws Exception {
+      registerUser(ALICE_USERNAME, ALICE_EMAIL, ALICE_PASSWORD);
+
+      postJson(LOGIN, Map.of(
+              "usernameOrEmail", ALICE_USERNAME,
+              "password", WRONG_PASSWORD
+          ))
+          .andExpect(status().isUnauthorized())
+          // If your handlers return RFC7807, these are nice to assert:
+          .andExpect(header().string("Content-Type", org.hamcrest.Matchers.containsString("application/problem+json")))
+          .andExpect(jsonPath("$.status").value(401))
+          .andExpect(jsonPath("$.title").exists())
+          .andExpect(jsonPath("$.type").exists())
+          .andExpect(jsonPath("$.errorCode").exists());
+    }
   }
 
-  @Test
-  void registration_creates_user() throws Exception {
-    mvc.perform(post("/api/auth/register")
-        .contentType("application/json")
-        .content("""
-                 {"username":"bob","email":"bob@example.com","password":"secret"}
-                 """))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.username").value("bob"))
-        .andExpect(jsonPath("$.email").value("bob@example.com"));
+  // ----- Small test DSL helpers -----
 
-    // verify user was created
-    var user = repo.findByUsername("bob").orElse(null);
-    assertNotNull(user);
-    assertEquals("bob@example.com", user.getEmail());
+  private void registerUser(String username, String email, String password) throws Exception {
+    postJson(REGISTER, Map.of(
+        "username", username,
+        "email", email,
+        "password", password
+    ))
+    .andExpect(status().isCreated())
+    .andExpect(jsonPath("$.username").value(username))
+    .andExpect(jsonPath("$.email").value(email));
   }
 
-  @Test
-  void login_wrong_password_returns_401() throws Exception {
-    // register first
-    mvc.perform(post("/api/auth/register")
-        .contentType("application/json")
-        .content("""
-                 {"username":"alice","email":"alice@example.com","password":"secret"}
-                 """))
-        .andExpect(status().isCreated());
+  private MockHttpSession loginAndGetSession(String usernameOrEmail, String password) throws Exception {
+    MvcResult res = postJson(LOGIN, Map.of(
+        "usernameOrEmail", usernameOrEmail,
+        "password", password
+    ))
+    .andExpect(status().isOk())
+    .andReturn();
 
-    mvc.perform(post("/api/auth/login")
-        .contentType("application/json")
-        .content("""
-                 {"usernameOrEmail":"alice","password":"wrong"}
-                 """))
-        .andExpect(status().isUnauthorized());
+    return (MockHttpSession) res.getRequest().getSession(false);
+  }
+
+  private ResultActions me(MockHttpSession session) throws Exception {
+    return mvc.perform(
+        get(ME)
+          .session(session)
+          .accept(MediaType.APPLICATION_JSON)
+    );
+  }
+
+  private ResultActions logout(MockHttpSession session) throws Exception {
+    return mvc.perform(
+        post(LOGOUT)
+          .session(session)
+          .accept(MediaType.APPLICATION_JSON)
+    );
+  }
+
+  private ResultActions postJson(String url, Object body) throws Exception {
+    return mvc.perform(
+        post(url)
+          .contentType(MediaType.APPLICATION_JSON)
+          .content(objectMapper.writeValueAsString(body))
+    );
   }
 }

@@ -1,0 +1,18 @@
+@baseUrl = http://localhost:8080/api/auth
+
+###
+# @name login
+# Login to get a session cookie
+POST {{baseUrl}}/login
+Content-Type: application/json
+
+{
+  "usernameOrEmail": "testuser",
+  "password": "password123"
+}
+
+###
+# @name me
+# Get the current user's information
+# This request will automatically use the cookie from the login request
+GET {{baseUrl}}/me
