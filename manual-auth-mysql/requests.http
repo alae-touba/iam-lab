@@ -1,6 +1,18 @@
 @baseUrl = http://localhost:8080/api/auth
 
 ###
+# @name register
+# Register a new user
+POST {{baseUrl}}/register
+Content-Type: application/json
+
+{
+  "username": "testuser",
+  "email": "testuser@example.com",
+  "password": "password123"
+}
+
+###
 # @name login
 # Login to get a session cookie
 POST {{baseUrl}}/login
