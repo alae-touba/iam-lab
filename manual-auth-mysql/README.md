@@ -58,11 +58,28 @@ logging:
 1.  Clone the repository.
 2.  Create the database in your MySQL instance.
 3.  Configure the database connection in `src/main/resources/application.yml`.
-4.  Run the application using Maven:
+4.  Run the application using Maven or the provided script:
+
+    **Using Maven:**
     ```bash
     ./mvnw spring-boot:run
     ```
+
+    **Using the script:**
+    ```bash
+    ./run.sh
+    ```
 5.  The application will start on port 8080.
+
+## Testing
+
+Run the integration tests using the provided script:
+
+```bash
+./test.sh
+```
+
+This will execute the test suite, which uses Testcontainers to spin up a dedicated MySQL database for testing.
 
 ## API Endpoints
 
