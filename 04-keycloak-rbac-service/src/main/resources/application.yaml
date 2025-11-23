@@ -1,0 +1,18 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: iam-rbac-service
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          # URL checks .well-known/openid-configuration
+          issuer-uri: http://localhost:8080/realms/iam-lab-realm
+          # Custom property: The token MUST have "aud": "spring-api-client"
+          audiences: spring-api-client
+
+logging:
+  level:
+    org.springframework.security: DEBUG
