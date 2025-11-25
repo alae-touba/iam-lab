@@ -4,9 +4,33 @@
 **Author:** Alae Touba  
 **Context:** Personal IAM Lab
 
-A stateless Resource Server implementation using **Spring Boot 3.4** and **Keycloak 26**. The primary goal of this project is to enable **token-based user authentication** and secure API access without relying on session cookies.
+## 💡 What Problem Does This Solve?
 
-It serves as a laboratory to explore specific IAM patterns—specifically Audience Validation, Role-Based Access Control (RBAC), and Attribute Mapping—without the complexity of a frontend application. For educational clarity, this project uses the **OAuth2 Resource Owner Password Credentials Grant** (Direct Access Grants) to demonstrate how to obtain and validate tokens via REST APIs.
+Instead of implementing user authentication and authorization logic directly in your application (managing passwords, sessions, roles, etc.), this project demonstrates how to **delegate authentication to Keycloak**, an external identity provider.
+
+**The core idea:** Your Spring Boot API doesn't handle login or store user credentials. Instead:
+1. **Keycloak authenticates users** and issues JWT tokens
+2. **Your API validates these tokens** on every request
+3. **No sessions, no cookies** — just stateless, token-based security
+
+This approach gives you:
+- ✅ **Separation of concerns** — authentication logic lives in Keycloak, not your app
+- ✅ **Scalability** — stateless APIs can scale horizontally without session management
+- ✅ **Security** — leverage Keycloak's battle-tested auth flows instead of rolling your own
+- ✅ **Flexibility** — easily add SSO, social login, or multi-factor auth via Keycloak
+
+### 🔑 About the Authentication Flow
+
+For simplicity and educational clarity, this project uses the **Resource Owner Password Credentials (ROPC)** grant flow (also called "Direct Access Grants" in Keycloak). This means:
+- You send username + password directly to Keycloak's token endpoint
+- Keycloak returns a JWT access token
+- Your API validates this token on each request
+
+**Important:** ROPC is used here specifically for **testing and learning** because it allows you to obtain tokens via simple `curl` commands without needing a frontend or browser-based login flow. In production applications, you should use more secure flows like:
+- **Authorization Code Flow** (for web apps with a frontend)
+- **Client Credentials Flow** (for service-to-service communication)
+
+This project serves as a hands-on lab to understand how Spring Boot integrates with Keycloak for token-based authentication, role-based access control (RBAC), and custom attribute mapping.
 
 ---
 
